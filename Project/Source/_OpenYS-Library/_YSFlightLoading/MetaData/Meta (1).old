@@ -1,0 +1,479 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace OpenYS
+{
+    public static class Meta
+    {
+
+        public static class Aircraft
+        {
+            public class MetaAircraft
+            {
+                public string AircraftPath0Dat;
+                public string AircraftPath1Model;
+                public string AircraftPath2Collision;
+                public string AircraftPath3Cockpit;
+                public string AircraftPath4Coarse;
+
+                public string Identify;
+                public float HitRadius;
+                public float Weight_Fuel;
+                public byte Strength;
+                public uint MaxNumberFlares = 20;
+                public List<string> LoadWeapons = new List<string>();
+                public ushort InitiGun;
+            }
+
+            public static MetaAircraft NoAircraft = new MetaAircraft() { Identify = "NULL" };
+
+            public static List<MetaAircraft> MetaAircraftList = new List<MetaAircraft>();
+
+            /// <summary>
+            /// Searches the YSFlightDirectory for the Aircraft Folder, and loads all Aircraft Lists from it. From each aircraft lists, each file path is loaded and concatenated into a List of MetaAircraft, MetaAircraftList.
+            /// </summary>
+            /// <returns></returns>
+            public static bool LoadAll()
+            {
+                //Invalidate the old aircraft list!
+                MetaAircraftList.Clear();
+
+                //if the YSFlight Aircraft directory doesn't exist, return false.
+
+                string YSFlightAircraftDirectory = Settings.Loading.YSFlightDirectory + "/Aircraft/";
+                if (!Directories.DirectoryExists(YSFlightAircraftDirectory)) return false;
+                string[] Filenames = Directories.DirectoryGetFilenames(YSFlightAircraftDirectory);
+                string[] AircraftLists = Filenames.Where(x => x.ToUpperInvariant().StartsWith("AIR") && x.ToUpperInvariant().EndsWith(".LST")).ToArray();
+                foreach (string AircraftList in AircraftLists)
+                {
+                    if (!Files.FileExists(YSFlightAircraftDirectory + AircraftList)) return false;
+                    string[] AircraftListContents = Files.FileReadAllLines(YSFlightAircraftDirectory + AircraftList);
+                    AircraftListContents = AircraftListContents.Where(x => x.ToUpperInvariant().Contains(".DAT")).ToArray();
+                    foreach (string Line in AircraftListContents)
+                    {
+                        string ProcessedLine = Line.ReplaceAll("\\", "/"); //escape code. actually replacing a single backslash with a single forwardslash. :)
+                        //ProcessedLine = Utilities.StringCompress(ProcessedLine);
+                        //string[] SplitString = ProcessedLine.Split(' ');
+                        string[] SplitString = Strings.SplitPreservingQuotes(ProcessedLine, ' ');
+                        string AircraftPath0Dat = "";
+                        string AircraftPath1Model = "";
+                        string AircraftPath2Collision = "";
+                        string AircraftPath3Cockpit = "";
+                        string AircraftPath4Coarse = "";
+
+                        if (SplitString.Length > 4) SplitString = new string[] { SplitString[0], SplitString[1], SplitString[2], SplitString[3], SplitString[4] };
+                        switch (SplitString.Length - 1)
+                        {
+                            case 4:
+                                AircraftPath4Coarse = SplitString[4];
+                                goto case 3;
+                            case 3:
+                                AircraftPath3Cockpit = SplitString[3];
+                                goto case 2;
+                            case 2:
+                                AircraftPath2Collision = SplitString[2];
+                                goto case 1;
+                            case 1:
+                                AircraftPath1Model = SplitString[1];
+                                goto case 0;
+                            case 0:
+                                AircraftPath0Dat = SplitString[0];
+                                break;
+                        }
+
+                        MetaAircraft NewMetaAircraft = new MetaAircraft();
+                        NewMetaAircraft.AircraftPath0Dat = AircraftPath0Dat;
+                        NewMetaAircraft.AircraftPath1Model = AircraftPath1Model;
+                        NewMetaAircraft.AircraftPath2Collision = AircraftPath2Collision;
+                        NewMetaAircraft.AircraftPath3Cockpit = AircraftPath3Cockpit;
+                        NewMetaAircraft.AircraftPath4Coarse = AircraftPath4Coarse;
+
+                        if (NewMetaAircraft.AircraftPath0Dat.Length < 4) Console.WriteLine(Line);
+
+                        MetaAircraftList.Add(NewMetaAircraft);
+                    }
+                }
+
+                //AT THIS POINT, ALL YSFLIGHT AIRCRAFT LST's ARE FULLY LOADED. NOW WE CACHE THE AIRCRAFT NAMES.
+
+                foreach (MetaAircraft ThisMetaAircraft in MetaAircraftList)
+                {
+                    if (!Files.FileExists(Settings.Loading.YSFlightDirectory + "/" + ThisMetaAircraft.AircraftPath0Dat))
+                    {
+                        Console.WriteLine("Failed To Load: " + Settings.Loading.YSFlightDirectory + "/" + ThisMetaAircraft.AircraftPath0Dat);
+                        continue; //Couldn't find the aircraft DAT file, we'll leave it blank!
+                    }
+                    string[] DatFileContents = Files.FileReadAllLines(Settings.Loading.YSFlightDirectory + "/" + ThisMetaAircraft.AircraftPath0Dat);
+                    foreach (string DatFileLine in DatFileContents)
+                    {
+                        #region Identify
+                        if (DatFileLine.ToUpperInvariant().Contains("IDENTIFY"))
+                        {
+                            string AircraftName = Strings.SplitPreservingQuotes(DatFileLine, ' ')[1];
+                            AircraftName = AircraftName.ReplaceAll(" ", "_");
+                            AircraftName = AircraftName.Split('�')[0];
+                            ThisMetaAircraft.Identify = AircraftName.ToUpperInvariant();
+                        }
+                        #endregion
+                        #region Weight_Fuel
+                        if (DatFileLine.ToUpperInvariant().Contains("WEIGFUEL"))
+                        {
+                            string temp = Strings.SplitPreservingQuotes(DatFileLine, ' ')[1];
+
+                            bool failed = false;
+
+                            if (temp.ToUpperInvariant().EndsWith("T"))
+                            {
+                                double output = 0;
+                                failed |= !Double.TryParse(temp.ToUpperInvariant().ReplaceAll("T", ""), out output);
+                                output *= 1000;
+                                temp = output.ToString() + "KG";
+                            }
+                            if (temp.ToUpperInvariant().EndsWith("LB"))
+                            {
+                                double output = 0;
+                                failed |= !Double.TryParse(temp.ToUpperInvariant().ReplaceAll("LB", ""), out output);
+                                output *= 0.453592;
+                                temp = output.ToString() + "KG";
+                            }
+
+                            failed |= !Single.TryParse(temp.ToUpperInvariant().ReplaceAll("KG", ""), out ThisMetaAircraft.Weight_Fuel);
+
+                            if (failed)
+                            {
+                                ThisMetaAircraft.Weight_Fuel = 1000;
+                            }
+                            continue;
+                        }
+                        #endregion
+                        #region Strength
+                        if (DatFileLine.ToUpperInvariant().Contains("STRENGTH"))
+                        {
+                            string temp = Strings.SplitPreservingQuotes(DatFileLine, ' ')[1];
+
+                            bool failed = false;
+
+                            failed |= !Byte.TryParse(temp.ToUpperInvariant(), out ThisMetaAircraft.Strength);
+
+                            if (failed)
+                            {
+                                ThisMetaAircraft.Strength = 0;
+                            }
+                            continue;
+                        }
+                        #endregion
+                        #region Max Number Flare
+                        if (DatFileLine.ToUpperInvariant().Contains("MAXNMFLR"))
+                        {
+                            string temp = Strings.SplitPreservingQuotes(DatFileLine, ' ')[1];
+
+                            bool failed = false;
+
+                            failed |= !UInt32.TryParse(temp.ToUpperInvariant(), out ThisMetaAircraft.MaxNumberFlares);
+
+                            if (failed)
+                            {
+                                ThisMetaAircraft.MaxNumberFlares = 0;
+                            }
+                            continue;
+                        }
+                        #endregion
+                        #region HitRadius
+                        if (DatFileLine.ToUpperInvariant().Contains("HTRADIUS"))
+                        {
+                            string temp = Strings.SplitPreservingQuotes(DatFileLine, ' ')[1];
+
+                            bool failed = false;
+
+                            failed |= !Single.TryParse(temp.ToUpperInvariant().ReplaceAll("M", ""), out ThisMetaAircraft.HitRadius);
+
+                            if (failed)
+                            {
+                                ThisMetaAircraft.HitRadius = 10; //Seems like a safe default number...
+                            }
+                            continue;
+                        }
+                        #endregion
+                        #region GunAmmo
+                        if (DatFileLine.ToUpperInvariant().Contains("INITIGUN "))
+                        {
+                            string temp = Strings.SplitPreservingQuotes(DatFileLine, ' ')[1];
+
+                            bool failed = false;
+
+                            failed |= !UInt16.TryParse(temp.ToUpperInvariant(), out ThisMetaAircraft.InitiGun);
+
+                            if (failed)
+                            {
+                                ThisMetaAircraft.InitiGun = 0;
+                            }
+                            continue;
+                        }
+                        #endregion
+
+                    }
+                }
+
+                //Cache Complete. All aircraft are loaded, ready for use.
+                return true;
+            }
+
+            /// <summary>
+            /// Finds the desired MetaObject by name. If no meta object is found, NULL is returned.
+            /// </summary>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static MetaAircraft FindByName(string Name)
+            {
+                MetaAircraft Output = NoAircraft;
+                foreach (MetaAircraft ThisMetaAircraft in MetaAircraftList)
+                {
+                    if (ThisMetaAircraft.Identify.ToUpperInvariant() == Name.ToUpperInvariant())
+                    {
+                        Output = ThisMetaAircraft;
+                    }
+                }
+                return Output;
+            }
+        }
+
+        public static class Scenery
+        {
+            public class MetaScenery
+            {
+                public string SceneryPath1Fld;
+                public string SceneryPath2Stp;
+                public string SceneryPath3Yfs;
+
+                public string Identify;
+            }
+
+            public static MetaScenery NoScenery = new MetaScenery() { Identify = "" };
+
+            public static List<MetaScenery> MetaSceneryList = new List<MetaScenery>();
+
+            /// <summary>
+            /// Searches the YSFlightDirectory for the Scenery Folder, and loads all Scenery Lists from it. From each scenery list, each file path is loaded and concatenated into a List of MetaScenery, MetaSceneryList.
+            /// </summary>
+            /// <returns></returns>
+            public static bool LoadAll()
+            {
+                //Invalidate the old scenery list!
+                MetaSceneryList.Clear();
+
+
+                //if the YSFlight Scenery directory doesn't exist, return false.
+
+                string YSFlightSceneryDirectory = Settings.Loading.YSFlightDirectory + "/Scenery/";
+                if (!Directories.DirectoryExists(YSFlightSceneryDirectory)) return false;
+                string[] Filenames = Directories.DirectoryGetFilenames(YSFlightSceneryDirectory);
+                foreach (string ThisFileName in Filenames)
+                {
+                }
+                string[] SceneryLists = Filenames.Where(x => x.ToUpperInvariant().StartsWith("SCE") && x.ToUpperInvariant().EndsWith(".LST")).ToArray();
+                foreach (string ThisFileName in SceneryLists)
+                {
+                }
+                foreach (string SceneryList in SceneryLists)
+                {
+                    if (!Files.FileExists(YSFlightSceneryDirectory + SceneryList)) return false;
+                    string[] SceneryListContents = Files.FileReadAllLines(YSFlightSceneryDirectory + SceneryList);
+                    SceneryListContents = SceneryListContents.Where(x => x.ToUpperInvariant().Contains(".FLD")).ToArray();
+                    foreach (string Line in SceneryListContents)
+                    {
+                        string ProcessedLine = Line.ReplaceAll("\\", "/"); //escape code. actually replacing a single backslash with a single forwardslash. :)
+                        //ProcessedLine = Utilities.StringCompress(ProcessedLine);
+                        //string[] SplitString = ProcessedLine.Split(' ');
+                        string[] SplitString = Strings.SplitPreservingQuotes(ProcessedLine, ' ');
+                        string Identify = "";
+                        string SceneryPath1Fld = "";
+                        string SceneryPath2Stp = "";
+                        string SceneryPath3Yfs = "";
+
+                        switch (SplitString.Length - 1)
+                        {
+                            case 3:
+                                SceneryPath3Yfs = SplitString[3];
+                                goto case 2;
+                            case 2:
+                                SceneryPath2Stp = SplitString[2];
+                                goto case 1;
+                            case 1:
+                                SceneryPath1Fld = SplitString[1];
+                                goto case 0;
+                            case 0:
+                                Identify = SplitString[0];
+                                break;
+                        }
+
+                        MetaScenery NewMetaScenery = new MetaScenery();
+                        NewMetaScenery.Identify = Identify;
+                        NewMetaScenery.SceneryPath1Fld = SceneryPath1Fld;
+                        NewMetaScenery.SceneryPath2Stp = SceneryPath2Stp;
+                        NewMetaScenery.SceneryPath3Yfs = SceneryPath3Yfs;
+
+                        MetaSceneryList.Add(NewMetaScenery);
+                    }
+                }
+
+                //AT THIS POINT, ALL YSFLIGHT SCENERY LST's ARE FULLY LOADED.
+                return true;
+            }
+
+            /// <summary>
+            /// Finds the desired MetaObject by name. If no meta object is found, NULL is returned.
+            /// </summary>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static MetaScenery FindByName(string Name)
+            {
+                MetaScenery Output = NoScenery;
+                foreach (MetaScenery ThisMetaScenery in MetaSceneryList)
+                {
+                    if (ThisMetaScenery.Identify == null) continue;
+                    if (ThisMetaScenery.Identify.ToUpperInvariant() == Name.ToUpperInvariant())
+                    {
+                        Output = ThisMetaScenery;
+                    }
+                }
+                return Output;
+            }
+        }
+
+        public static class Ground
+        {
+            public class MetaGround
+            {
+                public string GroundPath0Dat;
+                public string GroundPath1Model;
+                public string GroundPath2Collision;
+                public string GroundPath3Cockpit;
+                public string GroundPath4Coarse;
+
+                public string Identify;
+                public uint Strength;
+            }
+
+            public static MetaGround NoGround = new MetaGround() { Identify = "NULL" };
+
+            public static List<MetaGround> MetaGroundList = new List<MetaGround>();
+
+            /// <summary>
+            /// Searches the YSFlightDirectory for the Ground Folder, and loads all Ground Lists from it. From each Ground list, each file path is loaded and concatenated into a List of MetaGround, MetaGroundList.
+            /// </summary>
+            /// <returns></returns>
+            public static bool LoadAll()
+            {
+                //Invalidate the old grounds list!
+                MetaGroundList.Clear();
+
+                //if the YSFlight Ground directory doesn't exist, return false.
+
+                string YSFlightGroundDirectory = Settings.Loading.YSFlightDirectory + "/Ground/";
+                if (!Directories.DirectoryExists(YSFlightGroundDirectory)) return false;
+                string[] Filenames = Directories.DirectoryGetFilenames(YSFlightGroundDirectory);
+                string[] GroundLists = Filenames.Where(x => x.ToUpperInvariant().StartsWith("GRO") && x.ToUpperInvariant().EndsWith(".LST")).ToArray();
+                foreach (string GroundList in GroundLists)
+                {
+                    if (!Files.FileExists(YSFlightGroundDirectory + GroundList)) return false;
+                    string[] GroundListContents = Files.FileReadAllLines(YSFlightGroundDirectory + GroundList);
+                    GroundListContents = GroundListContents.Where(x => x.ToUpperInvariant().Contains(".DAT")).ToArray();
+                    foreach (string Line in GroundListContents)
+                    {
+                        string ProcessedLine = Line.ReplaceAll("\\", "/"); //escape code. actually replacing a single blackslash with a single forwardslash. :)
+                        //ProcessedLine = Utilities.StringCompress(ProcessedLine);
+                        //string[] SplitString = ProcessedLine.Split(' ');
+                        string[] SplitString = Strings.SplitPreservingQuotes(ProcessedLine, ' ');
+                        string GroundPath0Dat = "";
+                        string GroundPath1Model = "";
+                        string GroundPath2Collision = "";
+                        string GroundPath3Cockpit = "";
+                        string GroundPath4Coarse = "";
+
+                        switch (SplitString.Length - 1)
+                        {
+                            case 4:
+                                GroundPath4Coarse = SplitString[4];
+                                goto case 3;
+                            case 3:
+                                GroundPath3Cockpit = SplitString[3];
+                                goto case 2;
+                            case 2:
+                                GroundPath2Collision = SplitString[2];
+                                goto case 1;
+                            case 1:
+                                GroundPath1Model = SplitString[1];
+                                goto case 0;
+                            case 0:
+                                GroundPath0Dat = SplitString[0];
+                                break;
+                        }
+
+                        MetaGround NewMetaGround = new MetaGround();
+                        NewMetaGround.GroundPath0Dat = GroundPath0Dat;
+                        NewMetaGround.GroundPath1Model = GroundPath1Model;
+                        NewMetaGround.GroundPath2Collision = GroundPath2Collision;
+                        NewMetaGround.GroundPath3Cockpit = GroundPath3Cockpit;
+                        NewMetaGround.GroundPath4Coarse = GroundPath4Coarse;
+
+                        MetaGroundList.Add(NewMetaGround);
+                    }
+                }
+
+                //AT THIS POINT, ALL YSFLIGHT Ground LST's ARE FULLY LOADED. NOW WE CACHE THE Ground data.
+
+                foreach (MetaGround ThisMetaGround in MetaGroundList)
+                {
+                    if (!Files.FileExists(Settings.Loading.YSFlightDirectory + "/" + ThisMetaGround.GroundPath0Dat)) continue; //Couldn't find the Ground DAT file, we'll leave it blank!
+                    string[] DatFileContents = Files.FileReadAllLines(Settings.Loading.YSFlightDirectory + "/" + ThisMetaGround.GroundPath0Dat);
+                    foreach (string DatFileLine in DatFileContents)
+                    {
+                        if (DatFileLine.ToUpperInvariant().Contains("IDENTIFY"))
+                        {
+                            string GroundName = Strings.SplitPreservingQuotes(DatFileLine, ' ')[1];
+                            ThisMetaGround.Identify = GroundName;
+                        }
+                        if (DatFileLine.ToUpperInvariant().Contains("STRENGTH"))
+                        {
+                            uint GroundStength = 1;
+                            bool Failed = !UInt32.TryParse(Strings.SplitPreservingQuotes(DatFileLine, ' ')[1], out GroundStength);
+                            if (Failed | GroundStength <= 1)
+                            {
+                                Debug.WriteLine("Failed to convert value.");();
+                            }
+                            ThisMetaGround.Strength = GroundStength;
+                        }
+                    }
+                }
+
+                //Cache Complete. All Ground are loaded, ready for use.
+                return true;
+            }
+
+            /// <summary>
+            /// Finds the desired MetaObject by name. If no meta object is found, NULL is returned.
+            /// </summary>
+            /// <param name="Name"></param>
+            /// <returns></returns>
+            public static MetaGround FindByName(string Name)
+            {
+                MetaGround Output = NoGround;
+                foreach (MetaGround ThisMetaGround in MetaGroundList)
+                {
+                    if (ThisMetaGround.Identify.ToUpperInvariant() == Name.ToUpperInvariant())
+                    {
+                        Output = ThisMetaGround;
+                    }
+                }
+                if (Output == NoGround)
+                {
+                    Debug.TestPoint();
+                }
+                return Output;
+            }
+        }
+    }
+}

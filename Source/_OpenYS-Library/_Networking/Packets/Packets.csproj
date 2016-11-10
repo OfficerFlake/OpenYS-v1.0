@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{BD7FFBA7-FEB1-4DD7-A327-680F62F233FF}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>OpenYS</RootNamespace>
+    <AssemblyName>OpenYS Packet Types</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE;RELEASE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <DebugSymbols>true</DebugSymbols>
+    <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Packets\User\64_11_FormationData.cs" />
+    <Compile Include="Packets\User\64_29_Handshake.cs" />
+    <Compile Include="Packets\User\64_UserPacket.cs" />
+    <Compile Include="Packets\YSFlight\01_Login.cs" />
+    <Compile Include="Packets\YSFlight\04_Map.cs" />
+    <Compile Include="Packets\YSFlight\05_EntityJoined.cs" />
+    <Compile Include="Packets\YSFlight\06_Acknowledgement.cs" />
+    <Compile Include="Packets\YSFlight\07_SmokeColor.cs" />
+    <Compile Include="Packets\YSFlight\08_JoinRequest.cs" />
+    <Compile Include="Packets\YSFlight\09_JoinApproved.cs" />
+    <Compile Include="Packets\YSFlight\10_JoinDenied.cs" />
+    <Compile Include="Packets\YSFlight\11_FlightData.cs" />
+    <Compile Include="Packets\YSFlight\12_Unjoin.cs" />
+    <Compile Include="Packets\YSFlight\13_RemoveAirplane.cs" />
+    <Compile Include="Packets\YSFlight\16_PrepareSimulation.cs" />
+    <Compile Include="Packets\YSFlight\29_VersionNotify.cs" />
+    <Compile Include="Packets\YSFlight\30_AirCommand.cs" />
+    <Compile Include="Packets\YSFlight\31_MissilesOption.cs" />
+    <Compile Include="Packets\YSFlight\32_ChatMessage.cs" />
+    <Compile Include="Packets\YSFlight\33_Weather.cs" />
+    <Compile Include="Packets\YSFlight\35_ReviveGrounds.cs" />
+    <Compile Include="Packets\YSFlight\37_ListUser.cs" />
+    <Compile Include="Packets\YSFlight\39_WeaponsOption.cs" />
+    <Compile Include="Packets\YSFlight\41_UsernameDistance.cs" />
+    <Compile Include="Packets\YSFlight\43_MiscCommand.cs" />
+    <Compile Include="Packets\YSFlight\44_AircraftList.cs" />
+    <Compile Include="Packets\YSFlight\48_FogColor.cs" />
+    <Compile Include="Packets\YSFlight\49_SkyColor.cs" />
+    <Compile Include="Packets\YSFlight\50_GndColor.cs" />
+    <Compile Include="Packets\YSFlight\47_ForceJoin.cs" />
+    <Compile Include="Packets\YSFlight\18_LockOn.cs" />
+    <Compile Include="Packets\YSFlight\20_OrdinanceLaunch.cs" />
+    <Compile Include="Packets\YSFlight\21_GroundData.cs" />
+    <Compile Include="Packets\YSFlight\36_WeaponsConfig.cs" />
+    <Compile Include="Packets\YSFlight\19_RemoveGround.cs" />
+    <Compile Include="Packets\YSFlight\45_GndCommand.cs" />
+    <Compile Include="Packets\_Common.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Utilities\Utilities.csproj">
+      <Project>{8663101d-846e-47fe-8aee-6d79d127436d}</Project>
+      <Name>Utilities</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

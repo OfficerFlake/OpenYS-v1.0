@@ -1,0 +1,19 @@
+FTP Site: ts.ysfhq.com
+FTP User: OpenYS
+FTP Password: 6M612o71pHbi3}b
+API Key: X0kSNLfV78QE6sd618Mkc7I07Z87wDiIgpdvT15KgcVun2BjLjFtEyWDz1LtY5Zs
+Auth URL: https://forum.ysfhq.com/api-login.php?apikey=X0kSNLfV78QE6sd618Mkc7I07Z87wDiIgpdvT15KgcVun2BjLjFtEyWDz1LtY5Zs
+    ^^ Post Param1 = Username plain text, Param2 = password plain text.
+
+
+Here's your login info for your MySQL database:
+
+Database name: openys
+Username: openys
+Password: fcsdUzKfxA9pWraJ
+
+Login to phpMyAdmin at: http://208.68.37.244/pma/ (you'll get two login prompts, just use your MySQL username and password for both)
+
+When writing your PHP scripts, the hostname for the database will be "localhost".
+
+Let me know if you have any other questions. Enjoy!

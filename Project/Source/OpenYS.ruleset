@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RuleSet Name="OpenYS Ruleset" Description="Rules for developing code for OpenYS" ToolsVersion="11.0">
+  <Include Path="deadcode.ruleset" Action="Default" />
+  <Include Path="minimumrecommendedrules.ruleset" Action="Default" />
+</RuleSet>

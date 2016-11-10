@@ -1,0 +1,1733 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.IO;
+using System.Threading;
+using System.Diagnostics;
+using System.Reflection;
+using System.Net;
+using System.Net.Mail;
+using System.Text.RegularExpressions;
+
+namespace OpenYS_OLD
+{
+    public static partial class Threads
+    {
+        public static List<Thread> List = new List<Thread>();
+
+        public static bool Run(Thread Input)
+        {
+            try
+            {
+                //Console.WriteLine("RUN: " + Input.Name);
+                Input.Start();
+                return true;
+            }
+            catch
+            {
+                //Console.WriteLine("FAIL: " + Input.Name);
+                return false;
+            }
+        }
+
+        public static Thread Add(Action funcToRun, string Name)
+        {
+            Thread NewThread = new Thread(() =>
+                {
+                    #region TRY:
+#if RELEASE
+                    try
+                    {
+#endif
+                    #endregion
+                        funcToRun();
+                    #region CATCH
+#if RELEASE
+                    }
+                    catch (Exception e)
+                    {
+                        OldUtils.SendBugReportEmail(e);
+                    }
+#endif
+                    #endregion
+                });
+            NewThread.Name = Name;
+            lock (List) List.Add(NewThread);
+            if (!Run(NewThread))
+            {
+                Console.WriteLine();
+                Console.WriteLine("Failed to Spawn Thread: " + Name);
+                Console.WriteLine();
+                return null;
+            }
+            else return NewThread;
+        }
+
+        public static Thread Prepare(Action funcToRun, string Name)
+        {
+            Thread NewThread = new Thread(() => funcToRun());
+            NewThread.Name = Name;
+            lock (List) List.Add(NewThread);
+            return NewThread;
+        }
+    }
+
+    public static partial class Math3D
+    {
+        public class Point3
+        {
+            public double X = 0;
+            public double Y = 0;
+            public double Z = 0;
+
+            public Point3(double _X, double _Y, double _Z)
+            {
+                X = _X;
+                Y = _Y;
+                Z = _Z;
+            }
+
+            public Point3(string _XYZ)
+            {
+                //"X Y Z"
+                X = Byte.Parse(_XYZ.Split(' ')[0]);
+                Y = Byte.Parse(_XYZ.Split(' ')[1]);
+                Z = Byte.Parse(_XYZ.Split(' ')[2]);
+            }
+
+            public override string ToString()
+            {
+                return X.ToString() + " " + Y.ToString() + " " + Z.ToString();
+            }
+
+            public static Vector3 operator +(Point3 V0, Point3 V1)
+            {
+                return new Vector3(V0.X + V1.X, V0.Y + V1.Y, V0.Z + V1.Z);
+            }
+
+            public static Vector3 operator -(Point3 V0, Point3 V1)
+            {
+                return new Vector3(V0.X - V1.X, V0.Y - V1.Y, V0.Z - V1.Z);
+            }
+
+            public static Point3 operator +(Point3 P0, Vector3 V1)
+            {
+                return new Point3(P0.X + V1.X, P0.Y + V1.Y, P0.Z + V1.Z);
+            }
+        }
+
+        public class Vector3
+        {
+            public double X = 0;
+            public double Y = 0;
+            public double Z = 0;
+
+            public Vector3(double _X, double _Y, double _Z)
+            {
+                X = _X;
+                Y = _Y;
+                Z = _Z;
+            }
+
+            public Vector3(string _XYZ)
+            {
+                //"X Y Z"
+                X = Byte.Parse(_XYZ.Split(' ')[0]);
+                Y = Byte.Parse(_XYZ.Split(' ')[1]);
+                Z = Byte.Parse(_XYZ.Split(' ')[2]);
+            }
+
+            public override string ToString()
+            {
+                return X.ToString() + " " + Y.ToString() + " " + Z.ToString();
+            }
+
+            public Vector3 Normalise()
+            {
+                //return the same vector direction but of total unit length 1;
+                double Length = Distance(this);
+                return new Vector3
+                    (
+                        this.X / Length,
+                        this.Y / Length,
+                        this.Z / Length
+                    );
+            }
+
+            public Point3 AsPoint()
+            {
+                return new Point3(this.X, this.Y, this.Z);
+            }
+
+            public double XAngle()
+            {
+                //X/Z
+                return Math.Atan2(this.X, this.Z);
+            }
+            public double YAngle()
+            {
+                //X/Z
+                return Math.Atan2(this.Y, Math3D.Distance(new Vector3(this.X, 0, this.Z)));
+            }
+
+            public static Vector3 operator +(Vector3 V0, Vector3 V1)
+            {
+                return new Vector3(V0.X + V1.X, V0.Y + V1.Y, V0.Z + V1.Z);
+            }
+
+            public static Vector3 operator -(Vector3 V0, Vector3 V1)
+            {
+                return new Vector3(V0.X - V1.X, V0.Y - V1.Y, V0.Z - V1.Z);
+            }
+
+            public static Vector3 operator *(double Base, Vector3 Input)
+            {
+                return new Vector3(Input.X * Base, Input.Y * Base, Input.Z * Base);
+            }
+        }
+
+        public class Segment3
+        {
+            public Point3 P0 = new Point3(0, 0, 0);
+            public Point3 P1 = new Point3(0, 0, 0);
+
+            public Segment3(Point3 _P0, Point3 _P1)
+            {
+                P0 = _P0;
+                P1 = _P1;
+            }
+
+            public override string ToString()
+            {
+                return "(" + P0.ToString() + ")" + " => " + "(" + P1.ToString() + ")";
+            }
+        }
+
+        public static Vector3[] GeneratePlatonicSolidVertecies(int _Complexity)
+        {
+            //generate a primite icosphere, then subdivide for complexity
+            List<Point3> Points = new List<Point3>()
+            {
+                //Generic OctoHedron (complexity 1)
+                new Point3(-1, 0, 0),
+                new Point3( 1, 0, 0),
+                new Point3( 0,-1, 0),
+                new Point3( 0, 1, 0),
+                new Point3( 0, 0,-1),
+                new Point3( 0, 0, 1)
+            };
+            for (int i = 0; i < _Complexity-1; i++)
+            {
+                //repeat for complexity
+                Point3[] OriginalPoints = Points.ToArray();
+                double EdgeLength = Math.Sqrt(Math.Pow((6 / OriginalPoints.Count()),2)*2);
+                for (int j = 0; j < OriginalPoints.Count(); j++)
+                {
+                    //for each vertex
+                    for (int k = 0; k < OriginalPoints.Count(); k++)
+                    {
+                        if (OriginalPoints[k] == OriginalPoints[j]) continue; //if the same vertex, ignore.
+                        //test against every other vertex.
+                        if (Distance(OriginalPoints[k], OriginalPoints[j]) > EdgeLength*1.1) continue; //Edge length is NOT within spec tolerance.
+                        if (Distance(OriginalPoints[k], OriginalPoints[j]) < EdgeLength*0.9) continue; //Edge length is NOT within spec tolerance.
+
+                        //Edge length WILL be within spec tolerance, Add the point.
+                        Points.Add
+                            (
+                            new Point3
+                                (
+                                    (OriginalPoints[k].X + OriginalPoints[j].X)/2,
+                                    (OriginalPoints[k].Y + OriginalPoints[j].Y)/2,
+                                    (OriginalPoints[k].Z + OriginalPoints[j].Z)/2
+                                )
+                            );
+                    }
+                    //That vertex has passed the test and has been processed.
+                }
+                //All verticies have been subdivded at this point.
+                
+                //remove all duplicates.
+                Points = Points.Distinct().ToList();
+
+                List<Point3> temporaryPoints = new List<Point3>();
+                //normalise all the vertecies
+                for (int j = 0; j < Points.Count(); j++)
+                {
+                    Vector3 AsVector = new Vector3(Points[j].X, Points[j].Y, Points[j].Z);
+                    AsVector = AsVector.Normalise();
+                    temporaryPoints.Add
+                        (
+                            new Point3(AsVector.X, AsVector.Y, AsVector.Z)
+                        );
+                }
+                Points = temporaryPoints;
+            }
+            //finally done! Convert to Vectors!
+            List<Vector3> VectorOutput = new List<Vector3>();
+            //normalise all the vertecies
+            for (int j = 0; j < Points.Count(); j++)
+            {
+                Vector3 AsVector = new Vector3(Points[j].X, Points[j].Y, Points[j].Z);
+                VectorOutput.Add(AsVector);
+            }
+            return VectorOutput.ToArray();
+        }
+
+        public static double GetPointSegmentDistance(Point3 P, Segment3 S)
+        {
+            Vector3 v = S.P1 - S.P0;
+            Vector3 w = P - S.P0;
+
+            double c1 = Dot(w, v);
+            if (c1 <= 0)
+                return Distance(P, S.P0);
+
+            double c2 = Dot(v, v);
+            if (c2 <= c1)
+                return Distance(P, S.P1);
+
+            double b = c1 / c2;
+            Point3 Pb = S.P0 + b * v;
+            return Distance(P, Pb);
+        }
+
+        public static bool DoesSegmentPassNearPoint(Segment3 S, Point3 P, double Tolerance)
+        {
+            double TestResult = GetPointSegmentDistanceIfIntersecting(P, S);
+            if (TestResult == Double.NegativeInfinity | TestResult == Double.PositiveInfinity) return false; //no intersection.
+            return (TestResult <= Tolerance); //there IS an intersection on the plane, however, is it close enough?
+        }
+
+        public static double GetPointSegmentDistanceIfIntersecting(Point3 P, Segment3 S)
+        {
+            Vector3 v = S.P1 - S.P0;
+            Vector3 w = P - S.P0;
+
+            double c1 = Dot(w, v);
+            if (c1 <= 0)
+                return Double.NegativeInfinity;
+
+            double c2 = Dot(v, v);
+            if (c2 <= c1)
+                return Double.PositiveInfinity;
+
+            double b = c1 / c2;
+            Point3 Pb = S.P0 + b * v;
+            return Distance(P, Pb);
+        }
+
+        public static Point3 GetPointSegmentClosestPointIfIntersecting(Point3 P, Segment3 S)
+        {
+            Vector3 v = S.P1 - S.P0;
+            Vector3 w = P - S.P0;
+
+            double c1 = Dot(w, v);
+            if (c1 <= 0)
+                return null;
+
+            double c2 = Dot(v, v);
+            if (c2 <= c1)
+                return null;
+
+            double b = c1 / c2;
+            Point3 Pb = S.P0 + b * v;
+            return Pb;
+        }
+
+        public static double Dot(Vector3 U, Vector3 V)
+        {
+            return ((U).X * (V).X + (U).Y * (V).Y + (U).Z * (V).Z);
+        }
+
+        public static double Distance(Point3 U, Point3 V)
+        {
+            return Math.Sqrt
+                (
+                    Math.Pow((U.X - V.X), 2) +
+                    Math.Pow((U.Y - V.Y), 2) +
+                    Math.Pow((U.Z - V.Z), 2)
+                );
+        }
+
+        public static double Distance(Vector3 V)
+        {
+            return Math.Sqrt
+                (
+                    Math.Pow((V.X), 2) +
+                    Math.Pow((V.Y), 2) +
+                    Math.Pow((V.Z), 2)
+                );
+        }
+    }
+
+    public static partial class OldUtils
+    {
+        public static string OwnerName = "";
+        public static string OwnerContact = "";
+        public static object GenericThreadSafeLock = new object();
+        public static string[] CommandLineArgs = { };
+        public static Assembly Assembly = Assembly.GetEntryAssembly();
+        public static string ExecutableName
+        {
+            get
+            {
+                return Path.GetFileNameWithoutExtension(Assembly.Location);
+            }
+        }
+        public static IPEndPoint YSFServerEndPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 7914);
+        //public static List<Thread> AllThreads = new List<Thread>();
+        public static ManualResetEvent Terminate = new ManualResetEvent(false);
+
+        private static uint NextID = 1085;
+        public static uint GetNextID()
+        {
+            lock (GenericThreadSafeLock)
+            {
+                //Locked otherwise we get race condition errors in the ID numbers! Do not want!
+                NextID += 3;
+                return NextID;
+            }
+        }
+
+        //FUNCTIONS
+
+        public static int CountOccurancesInFiles(string[] Filenames, string Match)
+        {
+            int Out = 0;
+            foreach (string ThisFile in Filenames)
+            {
+                string[] Contents = Files.FileReadAllLines(ThisFile);
+                foreach (string ThisLine in Contents)
+                {
+                    if (ThisLine.ToUpperInvariant().Contains(Match.ToUpperInvariant())) Out++;
+                }
+            }
+            return Out;
+        }
+
+        public static void CopyDirectories(string Source, string Destination)
+        {
+            //Now Create all of the directories
+            foreach (string dirPath in Directory.GetDirectories(Source, "*",
+                SearchOption.AllDirectories))
+                Directory.CreateDirectory(dirPath.Replace(Source, Destination));
+
+            //Copy all the files & Replaces any files with the same name
+            foreach (string newPath in Directory.GetFiles(Source, "*.*",
+                SearchOption.AllDirectories))
+                File.Copy(newPath, newPath.Replace(Source, Destination), true);
+        }
+
+        public static void RemoveDirectories(string Match, string Location)
+        {
+            if (Directory.Exists(Location)) {
+                //Now Create all of the directories
+                foreach (string dirPath in Directory.GetDirectories(Location, Match,
+                    SearchOption.AllDirectories))
+                {
+                    DirectoryDeleteAll(dirPath);
+                }
+            }
+        }
+
+        public class RGBColor
+        {
+            public byte Red = 0;
+            public byte Green = 0;
+            public byte Blue = 0;
+
+            public RGBColor(byte _Red, byte _Green, byte _Blue)
+            {
+                Red = _Red;
+                Green = _Green;
+                Blue = _Blue;
+            }
+
+            public RGBColor(string _RGB)
+            {
+                //"R G B"
+                Red = Byte.Parse(_RGB.Split(' ')[0]);
+                Green = Byte.Parse(_RGB.Split(' ')[1]);
+                Blue = Byte.Parse(_RGB.Split(' ')[2]);
+            }
+
+            public override string ToString()
+            {
+                return Red.ToString() + " " + Green.ToString() + " " + Blue.ToString();
+            }
+
+            public RGBColor LinearBlend(RGBColor BlendWith, double Percent)
+            {
+                int OldRed = this.Red;
+                int OldGreen = this.Green;
+                int OldBlue = this.Blue;
+                int NewRed = BlendWith.Red;
+                int NewGreen = BlendWith.Green;
+                int NewBlue = BlendWith.Blue;
+
+                RGBColor Output =  new RGBColor(
+                    (byte)(OldRed + (int)(Percent * (NewRed - OldRed))),
+                    (byte)(OldGreen + (int)(Percent * (NewGreen - OldGreen))),
+                    (byte)(OldBlue + (int)(Percent * (NewBlue - OldBlue)))
+                    );
+
+                return Output;
+            }
+
+            public RGBColor Blend(RGBColor BlendWith, double Percent)
+            {
+                if (Percent < 0) Percent = 0;
+                if (Percent > 1) Percent = 1;
+
+                int OldRed = this.Red;
+                int OldGreen = this.Green;
+                int OldBlue = this.Blue;
+                int NewRed = BlendWith.Red;
+                int NewGreen = BlendWith.Green;
+                int NewBlue = BlendWith.Blue;
+
+                RGBColor Output = new RGBColor(
+                    (byte)((int)(NewRed * Percent) + (int)(OldRed * (1 - Percent))),
+                    (byte)((int)(NewGreen * Percent) + (int)(OldGreen * (1 - Percent))),
+                    (byte)((int)(NewBlue * Percent) + (int)(OldBlue * (1 - Percent)))
+                    );
+
+                return Output;
+            }
+        }
+
+        #region Colours
+        public static readonly SortedList<char, string> ColorNames = new SortedList<char, string> {
+            { '0', "black" },
+            { '1', "navy" },
+            { '2', "green" },
+            { '3', "teal" },
+            { '4', "maroon" },
+            { '5', "purple" },
+            { '6', "olive" },
+            { '7', "silver" },
+            { '8', "gray" },
+            { '9', "blue" },
+            { 'a', "lime" },
+            { 'b', "aqua" },
+            { 'c', "red" },
+            { 'd', "magenta" },
+            { 'e', "yellow" },
+            { 'f', "white" }
+        };
+        #endregion
+
+        /// <summary>
+        /// Writes to the console with colored text.
+        /// </summary>
+        /// <param name="color"></param>
+        /// <param name="text"></param>
+        public static void ColoredConsoleWrite(ConsoleColor color, string text)
+        {
+            ConsoleColor originalColor = Console.ForegroundColor;
+            Console.ForegroundColor = color;
+            Console.Write(text);
+            Console.ForegroundColor = originalColor;
+        }
+
+        public static string[] Converter(string input)
+        {
+
+            List<string> output = new List<string>();
+            string nextoutput = "";
+            char nextcolor = 'f';
+            if (input == null) return output.ToArray();
+            if (input.IndexOf('&') == -1)
+            {
+                output.Add("&f" + input);
+                return output.ToArray();
+            }
+            else
+            {
+                for (int i = 0; i < input.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        if (input[i] == '\\')
+                        {
+                            i++;
+                            nextoutput += input[i];
+                            continue;
+                        }
+                    }
+                    if (input[i] == '&')
+                    {
+                        if (input.Length > i + 1)
+                        {
+                            foreach (char colorid in "0123456789abcdef")
+                            {
+                                if (colorid == input.ToLowerInvariant()[i + 1])
+                                {
+                                    output.Add("&" + nextcolor + nextoutput);
+                                    nextoutput = "";
+                                    nextcolor = colorid;
+                                    continue;
+                                }
+                            }
+                            foreach (char colorid in "syprhwmi")
+                            {
+                                if (colorid == input.ToLowerInvariant()[i + 1])
+                                {
+                                    output.Add("&" + nextcolor + nextoutput);
+                                    nextoutput = "";
+                                    nextcolor = colorid;
+                                    continue;
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                    else if (i > 0)
+                    {
+                        if (input[i - 1] == '&')
+                        {
+                            if (i > 1)
+                            {
+                                if (input[i - 2] == '\\')
+                                {
+                                    nextoutput += input[i];
+                                    continue;
+                                }
+                            }
+                            foreach (char colorid in "0123456789abcdef")
+                            {
+                                if (colorid == input[i])
+                                {
+                                    continue;
+                                }
+                            }
+                            foreach (char colorid in "syprhwmi")
+                            {
+                                if (colorid == input.ToLowerInvariant()[i])
+                                {
+                                    output.Add("&" + nextcolor + nextoutput);
+                                    nextoutput = "";
+                                    nextcolor = colorid;
+                                    continue;
+                                }
+                            }
+                            continue;
+                        }
+                    }
+                    if (input[i] == '&') nextoutput += "\\";
+                    nextoutput += input[i];
+                }
+                output.Add("&" + nextcolor + nextoutput);
+                return output.ToArray();
+            }
+        }
+
+        public static string StripColors(string input)
+        {
+            if (input == null) return "";
+            if (input.IndexOf('&') == -1)
+            {
+                return input;
+            }
+            else
+            {
+                StringBuilder output = new StringBuilder(input.Length);
+                for (int i = 0; i < input.Length; i++)
+                {
+                    if (input[i] == '&')
+                    {
+                        if (i == input.Length - 1)
+                        {
+                            break;
+                        }
+                        i++;
+                        if (input[i] == 'n' || input[i] == 'N')
+                        {
+                            output.Append('\n');
+                        }
+                    }
+                    else
+                    {
+                        output.Append(input[i]);
+                    }
+                }
+                return output.ToString();
+            }
+        }
+
+        public static string AsString(this System.ConsoleColor Input)
+        {
+            switch (Input)
+            {
+                case ConsoleColor.Black: return "&0";
+                case ConsoleColor.DarkBlue: return "&1";
+                case ConsoleColor.DarkGreen: return "&2";
+                case ConsoleColor.DarkCyan: return "&3";
+                case ConsoleColor.DarkRed: return "&4";
+                case ConsoleColor.DarkMagenta: return "&5";
+                case ConsoleColor.DarkYellow: return "&6";
+                case ConsoleColor.Gray: return "&7";
+                case ConsoleColor.DarkGray: return "&8";
+                case ConsoleColor.Blue: return "&9";
+                case ConsoleColor.Green: return "&A";
+                case ConsoleColor.Cyan: return "&B";
+                case ConsoleColor.Red: return "&C";
+                case ConsoleColor.Magenta: return "&D";
+                case ConsoleColor.Yellow: return "&E";
+                case ConsoleColor.White: return "&F";
+                default: return "&F";
+            }
+        }
+
+        /// <summary>
+        /// Returns a string array of the specified datetime in OYS standard type values.
+        /// </summary>
+        /// <param name="ThisDateTime"></param>
+        /// <returns>YYYY, MM, DD, HH, mm, ss</returns>
+        public static string[] DateTimeFormat(this DateTime ThisDateTime)
+        {
+            #region Year
+            string Year = ThisDateTime.Year.ToString();
+            if (ThisDateTime.Year.ToString().Length > 4) Year = Year.Substring(0, 4);
+            while (Year.Length < 4) Year = "0" + Year;
+            #endregion
+            #region Month
+            string Month = ThisDateTime.Month.ToString();
+            if (ThisDateTime.Month.ToString().Length > 2) Month = Month.Substring(0, 2);
+            while (Month.Length < 2) Month = "0" + Month;
+            #endregion
+            #region Day
+            string Day = ThisDateTime.Day.ToString();
+            if (ThisDateTime.Day.ToString().Length > 2) Day = Day.Substring(0, 2);
+            while (Day.Length < 2) Day = "0" + Day;
+            #endregion
+            #region Hour
+            string Hour = ThisDateTime.Hour.ToString();
+            if (ThisDateTime.Hour.ToString().Length > 2) Hour = Hour.Substring(0, 2);
+            while (Hour.Length < 2) Hour = "0" + Hour;
+            #endregion
+            #region Minute
+            string Minute = ThisDateTime.Minute.ToString();
+            if (ThisDateTime.Minute.ToString().Length > 2) Minute = Minute.Substring(0, 2);
+            while (Minute.Length < 2) Minute = "0" + Minute;
+            #endregion
+            #region Second
+            string Second = ThisDateTime.Second.ToString();
+            if (ThisDateTime.Second.ToString().Length > 2) Second = Second.Substring(0, 2);
+            while (Second.Length < 2) Second = "0" + Second;
+            #endregion
+            string[] Output = { Year, Month, Day, Hour, Minute, Second };
+            return Output;
+        }
+
+        #region Auxillary Functions
+        public static string FormattedDateTime(DateTime CurrentTime)
+        {
+            string[] FormattedTime = DateTimeFormat(CurrentTime);
+            return String.Format("{0}/{1}/{2} {3}:{4}:{5}", FormattedTime[0], FormattedTime[1], FormattedTime[2], FormattedTime[3], FormattedTime[4], FormattedTime[5]);
+        }
+        public static string FormattedDate(DateTime CurrentTime)
+        {
+            string[] FormattedTime = DateTimeFormat(CurrentTime);
+            return String.Format("{0}-{1}-{2}", FormattedTime[0], FormattedTime[1], FormattedTime[2]);
+        }
+        public static void PrepareLog(string Filename)
+        {
+            try
+            {
+                lock (GenericThreadSafeLock)
+                {
+                    string[] Message = { String.Format("--- Log Created {0} ---", FormattedDateTime(DateTime.Now)) };
+                    if (FilePrepare(Filename)) FileAppend(Filename, Message);
+                }
+            }
+            catch
+            {
+                //Can't prepare the log, it's being written by something else!
+            }
+
+        }
+        #endregion
+
+
+        /// <summary>
+        /// Check to see if a directory exists.
+        /// </summary>
+        /// <param name="DirectoryName">
+        /// 
+        /// </param>
+        /// <returns></returns>
+        public static bool DirectoryExists(string DirectoryName)
+        {
+            if (Directory.Exists(DirectoryName))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get all the filenames in the specified directory.
+        /// 
+        /// !!! THIS ASSUMES THE DIRECTORY EXISTS !!!
+        /// </summary>
+        /// <param name="DirectoryName"></param>
+        /// <returns></returns>
+        public static string[] DirectoryGetFilenames(string DirectoryName)
+        {
+            return new DirectoryInfo(DirectoryName).GetFiles().Select(x => x.Name).ToArray();
+        }
+
+        /// <summary>
+        /// Returns True if it needed to create the directory.
+        /// </summary>
+        /// <param name="Filename"></param>
+        /// <returns></returns>
+        public static void DirectoryPrepare(string DirectoryName)
+        {
+            if (!(Directory.Exists(DirectoryName)))
+            {
+                try
+                {
+                    Directory.CreateDirectory(DirectoryName);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        public static void DirectoryDeleteAll(string DirectoryPath)
+        {
+            System.IO.DirectoryInfo downloadedMessageInfo = new DirectoryInfo(DirectoryPath);
+
+            if (Directory.Exists(DirectoryPath))
+            {
+                bool FilesExisted = false;
+                foreach (FileInfo file in downloadedMessageInfo.GetFiles())
+                {
+                    file.Delete();
+                    FilesExisted = true;
+                }
+                if (FilesExisted) Thread.Sleep(1000);
+                foreach (DirectoryInfo dir in downloadedMessageInfo.GetDirectories())
+                {
+                    dir.Delete(true);
+                }
+                Directory.Delete(DirectoryPath);
+            }
+        }
+
+        /// <summary>
+        /// Check to see if a file exists.
+        /// </summary>
+        /// <param name="FileName">
+        /// 
+        /// </param>
+        /// <returns></returns>
+        public static bool FileExists(string FileName)
+        {
+            try
+            {
+                if (File.Exists(FileName))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Read all the lines from the filename specified.
+        /// </summary>
+        /// <param name="Filename"></param>
+        /// <returns></returns>
+        public static string[] FileReadAllLines(string Filename)
+        {
+            if (!FileExists(Filename)) return new string[] { "" };
+            return File.ReadAllLines(Filename);
+        }
+
+        /// <summary>
+        /// Returns True if it needed to create the file.
+        /// </summary>
+        /// <param name="Filename"></param>
+        /// <returns></returns>
+        public static bool FilePrepare(string Filename)
+        {
+            if (!(File.Exists(Filename)))
+            {
+                //.Dispose releases the file for use by the OS again.
+                try
+                {
+                    File.Create(Filename).Dispose();
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Returns True if it needed to create the file.
+        /// </summary>
+        /// <param name="Filename"></param>
+        /// <returns></returns>
+        public static bool FileDelete(string Filename)
+        {
+            if ((File.Exists(Filename)))
+            {
+                //.Dispose releases the file for use by the OS again.
+                try
+                {
+                    File.Delete(Filename);
+                    return true;
+                }
+                catch
+                {
+                }
+                return false;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Appends the string to the file specified.
+        /// </summary>
+        /// <param name="Filename"></param>
+        /// <param name="Message"></param>
+        public static void FileAppend(string Filename, string[] Message)
+        {
+            try
+            {
+                lock (GenericThreadSafeLock) File.AppendAllLines(Filename, Message);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("File Write Failed!");
+                Console.WriteLine(e.Message);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Writes the string to the file specified... if the file exists, it is overwritten.
+        /// </summary>
+        /// <param name="Filename"></param>
+        /// <param name="Message"></param>
+        public static void FileWrite(string Filename, string[] Message)
+        {
+            try
+            {
+                lock (GenericThreadSafeLock) File.WriteAllLines(Filename, Message);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("File Write Failed!");
+                Console.WriteLine(e.Message);
+                return;
+            }
+        }
+
+        public static void SendEmail(string Subject, string Output)
+        {
+            //name: OpenYSProject@gmail.com
+            //pass: YSFlightHeadquarters
+            //DOB: 15/01/1990
+
+            var fromAddress = new MailAddress("openysproject@gmail.com", "OpenYS");
+            var toAddress = new MailAddress("OfficerFlake@gmail.com", "OfficerFlake");
+            const string fromPassword = "YSFlightHeadquarters";
+            string subject = Subject;
+            string body = Output;
+
+            var smtp = new SmtpClient
+            {
+                UseDefaultCredentials = false,
+                Host = "smtp.gmail.com",
+                Port = 587,
+                EnableSsl = true,
+                DeliveryMethod = SmtpDeliveryMethod.Network,
+                Credentials = new NetworkCredential(fromAddress.Address, fromPassword),
+                Timeout = 20000
+            };
+            using (var message = new MailMessage(fromAddress, toAddress)
+            {
+                Subject = subject,
+                Body = body
+            })
+            {
+                try
+                {
+                    smtp.Send(message);
+                    //Console.WriteLine("Email Send Success.");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Email Send Failed... You're on your own! Good luck!");
+                    Console.WriteLine(e.Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Simplification method: Compresses all tabs and whitespaces into just one space each.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static string StringCompress(string Input)
+        {
+            while (Input.Contains("  ")) Input = Input.ReplaceAll("  ", " ");
+            while (Input.Contains("\t\t")) Input = Input.ReplaceAll("\t\t", "\t");
+            Input = Input.ReplaceAll("\t", " ");
+            return Input;
+        }
+
+        public static string[] SplitFileArguments(string Input)
+        {
+            if (Input == null) Input = "";
+            Input = Input.ReplaceAll("\t\t", "\t");
+            Input = Input.ReplaceAll("\t", " ");
+            List<string> Strings = Regex.Matches(Input, @"[\""].+?[\""]|[^ ]+")
+                .Cast<Match>()
+                .Select(m => m.Value)
+                .ToList();
+
+            List<string> Output = new List<string>();
+            for (int i = 0; i < Strings.Count; i++)
+            {
+                Output.Add(Strings[i].Split('\t')[0].ReplaceAll("\"", ""));
+            }
+
+            return Output.ToArray();
+        }
+
+        /// <summary>
+        /// Makes a string 32 chars long by trimming excess or adding trailing nulls(\0).
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static string String32Chars(string Input)
+        {
+            string output = "";
+            if (Input == null) Input = "";
+            foreach (char ThisChar in Input)
+            {
+                //compresses the input to a max of 32.
+                if (output.Length < 32)
+                {
+                    output += ThisChar;
+                }
+            }
+            //extends the input to 32 if it is under the limit.
+            while (output.Length < 32)
+            {
+                output += '\0';
+            }
+            output = output.Substring(0, 31) + '\0';
+            return output;
+        }
+
+        /// <summary>
+        /// Returns a new string where Input is repeated Ammount times.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <param name="Ammount"></param>
+        /// <returns></returns>
+        public static string StringRepeat(string Input, int Ammount)
+        {
+            return String.Concat(Enumerable.Repeat(Input, Ammount));
+        }
+
+        public static void Restart()
+        {
+            var fileName = Assembly.GetEntryAssembly().Location;
+            string Outargs = "";
+            foreach (string argument in Environment.CommandLineArguments)
+            {
+                if (Outargs.Length != 0) Outargs += " ";
+                if (argument.Contains(' ')) Outargs += "\"";
+                Outargs += argument;
+                if (argument.Contains(' ')) Outargs += "\"";
+            }
+            System.Diagnostics.Process.Start(fileName, Outargs);
+            System.Environment.Exit(0);
+        }
+
+        public static void Quit()
+        {
+            System.Environment.Exit(0);
+        }
+
+        public static void DumpPDB()
+        {
+            using (var resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("OpenYS.Resources.OpenYS.PDB"))
+            {
+                try
+                {
+                    string filename = Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location);
+                    using (var file = new FileStream("OpenYS.pdb", FileMode.Create, FileAccess.Write))
+                    {
+                        resource.CopyTo(file);
+                    }
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        public static void RemovePDB()
+        {
+            try
+            {
+                string filename = Path.GetFileNameWithoutExtension(System.Reflection.Assembly.GetEntryAssembly().Location);
+                File.Delete("OpenYS.pdb");
+            }
+            catch
+            {
+            }
+        }
+
+        public static string GetStackTrace(Exception e)
+        {
+            Environment.SetEnvironmentVariable("_NT_SYMBOL_PATH", "./Debug/");
+            var st = new StackTrace(e, true);
+            var frame = st.GetFrame(0);
+            string output = "";
+            output += "&cMESSAGE:    &e\n    " + e.Message + "\n";
+            output += "&cMETHOD:     &e\n    " + frame.GetMethod() + "\n";
+            output += "&cLINENUMBER: &e\n    " + frame.GetFileLineNumber() + "\n";
+            output += "&cCOLUMNNUMBER: &e\n    " + frame.GetFileColumnNumber() + "\n";
+            output += "&cSTACKTRACE: &e\n" + st.ToString().ReplaceAll("   at ", "    ") + "\n";
+            output += "\n";
+            return output;
+        }
+
+        public static string GetSourceCodePosition()
+        {
+            int depth = 1;
+            return GetSourceCodePosition(depth);
+        }
+
+        public static string GetSourceCodePosition(int depth)
+        {
+            Environment.SetEnvironmentVariable("_NT_SYMBOL_PATH", "./Debug/");
+            StackFrame SF = new StackFrame(depth + 1, true);
+            return "&c" + SF.GetFileColumnNumber() + ":" + SF.GetFileLineNumber();
+            //return "&e" + SF.GetFileName() + "\n    &c" + SF.GetFileColumnNumber() + ":" + SF.GetFileLineNumber();
+        }
+
+        //OVERRIDES
+
+        /// <summary>
+        /// Converts an integer to milliseconds for use with thread timing functions.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static int Seconds(this int Input)
+        {
+            return Input * 1000;
+        }
+
+        /// <summary>
+        /// Converts an integer to milliseconds for use with thread timing functions.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static int Minutes(this int Input)
+        {
+            return Input * 1000 * 60;
+        }
+
+        /// <summary>
+        /// Converts an integer to milliseconds for use with thread timing functions.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static int Hours(this int Input)
+        {
+            return Input * 1000 * 60 * 60;
+        }
+
+        /// <summary>
+        /// converts the value indicated in knots to meters per second.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static int Knots(this int Input) {
+            return (int)(Input * 0.5144444444444444);
+            }
+
+        /// <summary>
+        /// converts the value indicated in feet to meters.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static int Feet(this int Input)
+        {
+            return (int)(Input / 3.280839895013123);
+        }
+
+        /// <summary>
+        /// Replaces all occurences of oldstr in string Input to newstr. WARNING: DO NOT REPLACE oldstr WHERE newstr CONTAINS oldstr!
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static string ReplaceAll(this string Input, string oldstr, string newstr)
+        {
+            while (Input.Contains(oldstr))
+            {
+                if (newstr.Contains(oldstr)) break;
+                if (oldstr == "") break;
+                if (oldstr == newstr) break;
+                Input = Input.Replace(oldstr, newstr);
+            }
+            return Input;
+        }
+
+        /// <summary>
+        /// Converts an array of bytes to a standard string.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static string ToDataString(this byte[] Input)
+        {
+            string output = "";
+            foreach (byte ThisByte in Input)
+            {
+                output += Convert.ToChar(ThisByte);
+            }
+            return output;
+        }
+
+        /// <summary>
+        /// Converts an array of chars to a standard string.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static string ToDataString(this char[] Input)
+        {
+            string output = "";
+            foreach (char ThisChar in Input)
+            {
+                output += ThisChar;
+            }
+            return output;
+        }
+
+        /// <summary>
+        /// Returns a position indexed list of each byte in the array for debugging purposes.
+        /// </summary>
+        /// <param name="ByteString"></param>
+        /// <returns></returns>
+        public static string _ToDebugHexString(this byte[] ByteString)
+        {
+            string output = "";
+            int i = 0;
+            foreach (byte ThisByte in ByteString)
+            {
+                string number = i.ToString();
+                while (number.Length <= 3)
+                {
+                    number = "0" + number;
+                }
+                output += "" + number + "(" + "";
+                output += BitConverter.ToString(new byte[] { ThisByte });
+                output += ")-";
+                i++;
+            }
+            return output;
+        }
+
+        public static string ToDebugHexString(this byte[] ByteString)
+        {
+            string output = "";
+            int i = 0;
+            foreach (byte ThisByte in ByteString)
+            {
+                string Letter = "f";
+                if (i % 8 == 0) output += "\n";
+                if (i % 16 == 15) Letter = "a";
+                if (i % 16 == 14) Letter = "a";
+                if (i % 16 == 13) Letter = "a";
+                if (i % 16 == 12) Letter = "a";
+                if (i % 16 == 11) Letter = "b";
+                if (i % 16 == 10) Letter = "b";
+                if (i % 16 == 09) Letter = "b";
+                if (i % 16 == 08) Letter = "b";
+                if (i % 16 == 07) Letter = "c";
+                if (i % 16 == 06) Letter = "c";
+                if (i % 16 == 05) Letter = "c";
+                if (i % 16 == 04) Letter = "c";
+                if (i % 16 == 03) Letter = "d";
+                if (i % 16 == 02) Letter = "d";
+                if (i % 16 == 01) Letter = "d";
+                if (i % 16 == 00) Letter = "d";
+                string number = i.ToString();
+                while (number.Length < 4)
+                {
+                    number = "0" + number;
+                }
+                output += "&8" + number + "&7(" + "&" + Letter;
+                output += BitConverter.ToString(new byte[] { ThisByte });
+                output += "&7)-";
+                i++;
+                //if (i > 15) i = 0;
+            }
+            return output;
+        }
+
+        /// <summary>
+        /// Returns a position indexed list of each byte in the array for debugging purposes.
+        /// </summary>
+        /// <param name="ByteString"></param>
+        /// <returns></returns>
+        public static string ToColoredDebugHexString(this byte[] ByteString)
+        {
+            string output = "";
+            int i = 0;
+            foreach (byte ThisByte in ByteString)
+            {
+                string Letter = "f";
+                if (i % 8 == 0 && i > 0) output += "\n";
+                if (ThisByte.GetTens() == 0x0F) Letter = "F";
+                if (ThisByte.GetTens() == 0x0E) Letter = "E";
+                if (ThisByte.GetTens() == 0x0D) Letter = "D";
+                if (ThisByte.GetTens() == 0x0C) Letter = "C";
+                if (ThisByte.GetTens() == 0x0B) Letter = "B";
+                if (ThisByte.GetTens() == 0x0A) Letter = "A";
+                if (ThisByte.GetTens() == 0x09) Letter = "9";
+                if (ThisByte.GetTens() == 0x08) Letter = "8";
+                if (ThisByte.GetTens() == 0x07) Letter = "7";
+                if (ThisByte.GetTens() == 0x06) Letter = "6";
+                if (ThisByte.GetTens() == 0x05) Letter = "5";
+                if (ThisByte.GetTens() == 0x04) Letter = "4";
+                if (ThisByte.GetTens() == 0x03) Letter = "3";
+                if (ThisByte.GetTens() == 0x02) Letter = "2";
+                if (ThisByte.GetTens() == 0x01) Letter = "1";
+                if (ThisByte.GetTens() == 0x00) Letter = "0";
+                string number = i.ToString();
+                while (number.Length < 4)
+                {
+                    number = "0" + number;
+                }
+                output += "&8" + number + "&7(" + "&" + Letter;
+                output += BitConverter.ToString(new byte[] { ThisByte })[0].ToString();
+
+                Letter = "F";
+                //if (i % 8 == 0) output += "\n";
+                if (ThisByte.GetUnits() == 0x0F) Letter = "F";
+                if (ThisByte.GetUnits() == 0x0E) Letter = "E";
+                if (ThisByte.GetUnits() == 0x0D) Letter = "D";
+                if (ThisByte.GetUnits() == 0x0C) Letter = "C";
+                if (ThisByte.GetUnits() == 0x0B) Letter = "B";
+                if (ThisByte.GetUnits() == 0x0A) Letter = "A";
+                if (ThisByte.GetUnits() == 0x09) Letter = "9";
+                if (ThisByte.GetUnits() == 0x08) Letter = "8";
+                if (ThisByte.GetUnits() == 0x07) Letter = "7";
+                if (ThisByte.GetUnits() == 0x06) Letter = "6";
+                if (ThisByte.GetUnits() == 0x05) Letter = "5";
+                if (ThisByte.GetUnits() == 0x04) Letter = "4";
+                if (ThisByte.GetUnits() == 0x03) Letter = "3";
+                if (ThisByte.GetUnits() == 0x02) Letter = "2";
+                if (ThisByte.GetUnits() == 0x01) Letter = "1";
+                if (ThisByte.GetUnits() == 0x00) Letter = "0";
+                output += "&" + Letter;
+                output += BitConverter.ToString(new byte[] { ThisByte })[1].ToString();
+
+                output += "&7)-";
+                i++;
+                //if (i > 15) i = 0;
+            }
+            return output;
+        }
+
+        /// <summary>
+        /// Converts a standard string into an array of bytes.
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static byte[] ToByteArray(this string Input)
+        {
+            List<byte> Outbytes = new List<byte>();
+            foreach (char ThisChar in Input)
+            {
+                Outbytes.Add(Convert.ToByte(ThisChar));
+            }
+            return Outbytes.ToArray();
+        }
+
+        /// <summary>
+        /// Removes the final comma and space from a building string list, and adds the finalising period.
+        /// </summary>
+        /// <param name="InputString"></param>
+        /// <returns></returns>
+        public static string FinaliseStringList(this string InputString)
+        {
+            if (InputString.Length < 2) return InputString;
+            return InputString.Remove(InputString.Length - 2) + ".";
+        }
+
+        /// <summary>
+        /// Converts a List of Strings to a comma seperated, period finalised list.
+        /// </summary>
+        /// <param name="ThisStringList"></param>
+        /// <returns></returns>
+        public static string ToStringList(this List<String> ThisStringList)
+        {
+            string Output = "";
+            foreach (string ThisString in ThisStringList)
+            {
+                Output += ThisString + ", ";
+            }
+            if (Output == "") return "None.";
+            return Output.FinaliseStringList();
+        }
+
+        /// <summary>
+        /// returns the UNITS column of a Hex number between 0 and 255, as a value from 0 to 15.
+        /// </summary>
+        /// <param name="ThisByte"></param>
+        /// <returns></returns>
+        public static byte GetUnits(this byte ThisByte)
+        {
+            return (byte)(ThisByte & 15);
+        }
+
+        /// <summary>
+        /// returns the TENS column of a Hex number between 0 and 255, as a value from 0 to 15.
+        /// </summary>
+        /// <param name="ThisByte"></param>
+        /// <returns></returns>
+        public static byte GetTens(this byte ThisByte)
+        {
+            return (byte)((ThisByte & 240) / 16);
+        }
+
+        /// <summary>
+        /// returns a value from 0 to 255, where the byte given is the units only. (overflow bits not supported.) [Bitwise it shifts the numbers 4 binary to the left]
+        /// </summary>
+        /// <param name="ThisByte"></param>
+        /// <returns></returns>
+        public static byte ToTens(this byte ThisByte)
+        {
+            return (byte)((int)ThisByte * 16);
+        }
+
+        /// <summary>
+        /// returns a value from 0 to 15, where the byte given is the tens only. (underflow bits not supported.) [Bitwise it shifts the numbers 4 binary to the right]
+        /// </summary>
+        /// <param name="ThisByte"></param>
+        /// <returns></returns>
+        public static byte ToUnits(this byte ThisByte)
+        {
+            return (byte)((int)ThisByte / 16);
+        }
+
+        /// <summary>
+        /// Sets the sepecific bit of a byte to 1.
+        /// </summary>
+        /// <param name="ThisByte"></param>
+        /// <param name="Cell"></param>
+        /// <returns></returns>
+        public static byte SetBit(this byte ThisByte, int Cell)
+        {
+            if (Cell >= 8 || Cell < 0)
+            {
+                return ThisByte;
+            }
+            byte SetTo = (byte)(Math.Pow((double)2, (double)Cell));
+            return (byte)(ThisByte & SetTo);
+        }
+
+        /// <summary>
+        /// UnSets the sepecific bit of a byte to 1.
+        /// </summary>
+        /// <param name="ThisByte"></param>
+        /// <param name="Cell"></param>
+        /// <returns></returns>
+        public static byte UnSetBit(this byte ThisByte, int Cell)
+        {
+            if (Cell >= 8 || Cell < 0)
+            {
+                return ThisByte;
+            }
+            byte SetTo = (byte)(Math.Pow((double)2, (double)Cell));
+            return (byte)(ThisByte & ~SetTo);
+        }
+
+        /// <summary>
+        /// Converts a string representation of a binary number to a byte
+        /// </summary>
+        /// <param name="Input"></param>
+        /// <returns></returns>
+        public static byte ToByte(this string Input)
+        {
+            Input = Input.ReplaceAll(" ", "");
+            if (Input.Length != 8) return 0;
+            string temp = Input;
+            byte output = 0;
+            if (temp.ReplaceAll("1", "0").ReplaceAll("0", "") != "") return 0;
+            for (int i = 0; i <= 7; i++)
+            {
+                if (Input.Substring(7 - i, 1) == "1") output |= (byte)(Math.Pow((double)2, (double)i));
+            }
+            return output;
+        }
+
+        public static string GetCompilationDate
+        {
+            get
+            {
+                try
+                {
+                    var resourceName = "OpenYS.BuildVersion.txt";
+
+                    using (Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        string result = reader.ReadToEnd().ReplaceAll("\r", "").ReplaceAll("\n", "");
+                        return result;
+                    }
+                }
+                catch
+                {
+                    return "MISSINGNO.";
+                }
+            }
+        }
+
+        public static string[] PrepareBugReportEmail(this Exception e)
+        {
+            var st = new StackTrace(e, true);
+            var frame = st.GetFrame(0);
+            var line = frame.GetFileLineNumber();
+
+            string Subject = "OpenYS Bug Report - " + GetCompilationDate + ".";
+            Subject = Subject.ReplaceAll("\n", "").ReplaceAll("\r", "");
+
+            string Body = "";
+            Body += "OpenYS Bug Report\n";
+            Body += "Version: " + GetCompilationDate + "\n";
+            Body += "\n";
+            Body += "OpenYS Client Class has the following error:\n";
+            Body += "\n";
+            Body += StripColors(GetStackTrace(e));
+
+            return new string[] { Subject, Body };
+        }
+
+        public static bool SendBugReportEmail(Exception e)
+        {
+            try
+            {
+                string[] Email = Emailing.PrepareBugReportEmail(e);
+                Emailing.SendEmail(Email[0], Email[1]);
+                return true;
+            }
+            catch (Exception e2)
+            {
+                Console.WriteLine("Email Send Failed... You're on your own! Good luck!");
+                Console.WriteLine(e2.Message);
+                return false;
+            }
+        }
+
+        public static string[] PrepareCrashReportEmail(this Exception e)
+        {
+            var st = new StackTrace(e, true);
+            var frame = st.GetFrame(0);
+            var line = frame.GetFileLineNumber();
+
+            string Subject = "OpenYS Crash Report - " + GetCompilationDate + ".";
+            Subject = Subject.ReplaceAll("\n", "").ReplaceAll("\r", "");
+
+            string Body = "";
+            Body += "OpenYS Bug Report\n";
+            Body += "Version: " + GetCompilationDate + "\n";
+            Body += "\n";
+            Body += "OpenYS crashed with the following error:\n";
+            Body += "\n";
+            Body += StripColors(GetStackTrace(e));
+
+            return new string[] { Subject, Body };
+        }
+
+        public static bool SendCrashReportEmail(Exception e)
+        {
+            try
+            {
+                string[] Email = Emailing.PrepareCrashReportEmail(e);
+                Emailing.SendEmail(Email[0], Email[1]);
+                return true;
+            }
+            catch (Exception e2)
+            {
+                Console.WriteLine("Email Send Failed... You're on your own! Good luck!");
+                Console.WriteLine(e2.Message);
+                return false;
+            }
+        }
+
+        public static string ToTitleInvariant(this string Input)
+        {
+            string output = "";
+            if (Input == null) return "";
+            foreach (string ThisString in Input.Split(' '))
+            {
+                if (output.Length > 0) output += " ";
+                if (ThisString.Length > 0) output += ThisString.Substring(0, 1).ToUpperInvariant();
+                if (ThisString.Length > 1) output += ThisString.Substring(1).ToLowerInvariant();
+            }
+            return output;
+        }
+
+        public static float ToDegrees(this short Input)
+        {
+            float Out =  ((ushort)Input / 65536f * 360);
+            if (Out > 180) Out -= 360;
+            return Out;
+        }
+
+        public static short ToYSDegrees(this Int32 Input)
+        {
+            int Out = (int)((float)Input / 360f * 65536f);
+            if (Out > 32767 ) Out -= 32767;
+            return (short)Out;
+        }
+
+        public static float ToYSRadians(this Int32 Input)
+        {
+            double Out = ((double)Input / 180f * Math.PI);
+            if (Out > Math.PI) Out -= Math.PI;
+            return (float)Out;
+        }
+
+        public static float ToDegrees(this ushort Input)
+        {
+            return (Input / 65536f * 360);
+        }
+
+        public static float AngleAcuteDifference(float a1, float a2)
+        {
+            float difference = a1 - a2;
+            while (difference < -180) difference += 360;
+            while (difference > 180) difference -= 360;
+            return difference;
+        }
+    }
+
+    public static partial class Debug
+    {
+        private static DateTime LastPoll = DateTime.Now;
+        public static void PollEfficiency()
+        {
+            System.Diagnostics.Debug.WriteLine((DateTime.Now - LastPoll).TotalSeconds);
+            LastPoll = DateTime.Now;
+        }
+
+        public static void StartEfficiency()
+        {
+            LastPoll = DateTime.Now;
+        }
+
+        /// <summary>
+        /// Declares a Debug Test Point at this location in the code - no effect, but searching DTP() in the release will show these test points in order to make sure there are no useless DTP's in the code when releasing!
+        /// </summary>
+        public static void TestPoint()
+        {
+            //do nothing, declare a debug test point - makes easy to find debugging code to remove in future
+            return;
+        }
+
+        public static void WriteLine(object Message)
+        {
+            Environment.SetEnvironmentVariable("_NT_SYMBOL_PATH", "./Debug/");
+            StackFrame SF = new StackFrame(1, true);
+            string MethodName = SF.GetMethod().Name;
+            System.Diagnostics.Debug.WriteLine(MethodName + "> " + Strings.(Message.ToString()));
+        }
+
+        public static void ShowPosition()
+        {
+            Environment.SetEnvironmentVariable("_NT_SYMBOL_PATH", "./Debug/");
+            StackFrame SF = new StackFrame(1, true);
+            string MethodName = SF.GetMethod().Name;
+            System.Diagnostics.Debug.WriteLine(MethodName + "> " + SF.GetFileLineNumber() + ":" + SF.GetFileColumnNumber());
+        }
+
+        public static void SimulateLag(int MicroSeconds)
+        {
+            Random RandomNumberGenerator = new Random();
+            const int Precision = 100000;
+            double Factor = RandomNumberGenerator.Next(-Precision, Precision) / Precision / 2;
+            Thread.Sleep(MicroSeconds + (int)(Factor * MicroSeconds));
+        }
+
+        public static void ShowStackTrace()
+        {
+            Environment.SetEnvironmentVariable("_NT_SYMBOL_PATH", "./Debug/");
+            StackFrame SF = new StackFrame(1, true);
+            StackTrace ST = new StackTrace(true);
+            string MethodName = SF.GetMethod().Name;
+            System.Diagnostics.Debug.WriteLine(MethodName + "> " + SF.GetFileLineNumber() + ":" + SF.GetFileColumnNumber());
+            foreach(string Line in ST.ToString().Split('\n'))
+            {
+                System.Diagnostics.Debug.WriteLine("    " + Line.Replace('\n',' '));
+            }
+        }
+
+        public static void Console_ShowAllDebugTestPoints()
+        {
+            List<string> Output = new List<string>();
+            string ProjectPath = Directory.GetCurrentDirectory() + "/" + "../../../..";
+            string[] AllSourceFiles = Directory.GetFiles(ProjectPath, "*.cs", System.IO.SearchOption.AllDirectories);
+            for (int i = 0; i < AllSourceFiles.Count(); i++)
+            {
+                //for each file...
+
+                string[] Contents = Files.FileReadAllLines(AllSourceFiles[i]);
+                for (int j = 0; j < Contents.Count(); j++)
+                {
+                    //for each line in that file...
+                    if (Contents[j].ToUpperInvariant().Contains("DEBUG" + "." + "TESTPOINT"))
+                    {
+                        //Add that to the list.
+                        Output.Add("    " + Path.GetFileName(AllSourceFiles[i]) + ": Line " + j);
+                    }
+                }
+            }
+            for (int i = 0; i < Output.Count; i++)
+            {
+                if (i == 0)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("There are a total of " + Output.Count + " active testpoints in the code:");
+                }
+                Console.WriteLine(Output[i]);
+            }
+            if (Output.Count == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("There are 0 active testpoints in the code.");
+            }
+            Console.ForegroundColor = ConsoleColor.White;
+        }
+    }
+}
