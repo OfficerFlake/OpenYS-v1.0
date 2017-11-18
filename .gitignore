@@ -1,6 +1,8 @@
 #Ignore anything in _Ignore
 _ignore/
 [Pp]roject/[Rr]eleases/
+.dropbox
+desktop.ini
 
 
 ## Ignore Visual Studio temporary files, build results, and
