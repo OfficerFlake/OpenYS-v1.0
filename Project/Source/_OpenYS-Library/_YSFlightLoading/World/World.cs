@@ -8,6 +8,8 @@ namespace OpenYS
 {
     public static class World
     {
+
+
         public static bool Load(string Name)
         {
             MetaData.Scenery Target = MetaData._Scenery.FindByName(Name);
@@ -82,6 +84,7 @@ namespace OpenYS
             for (int i = 0; i < FLDContents.Length; i++)
             {
                 string ThisLine = FLDContents[i];
+	            if (ThisLine == "") continue;
 
                 while (i > CurrentScenery.EndLine && CurrentScenery != Objects.RootScenery)
                 {
